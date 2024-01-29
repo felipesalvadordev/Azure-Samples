@@ -1,0 +1,1445 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.16.2.56959",
+      "templateHash": "2804052750941497229"
+    }
+  },
+  "parameters": {
+    "appNameSuffix": {
+      "type": "string",
+      "defaultValue": "[format('app{0}', uniqueString('azinsider'))]",
+      "metadata": {
+        "description": "Suffix for naming resources"
+      }
+    },
+    "environmentType": {
+      "type": "string",
+      "defaultValue": "dev",
+      "metadata": {
+        "description": "Environment"
+      },
+      "allowedValues": [
+        "dev",
+        "test",
+        "prod"
+      ]
+    },
+    "createApim": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Do you want to create new APIM?"
+      }
+    },
+    "apimName": {
+      "type": "string",
+      "defaultValue": "[format('apim-{0}-{1}', parameters('appNameSuffix'), parameters('environmentType'))]",
+      "metadata": {
+        "description": "APIM name"
+      }
+    },
+    "apimResourceGroup": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().name]",
+      "metadata": {
+        "description": "APIM resource group"
+      }
+    },
+    "createKeyVault": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Do you want to create new vault?"
+      }
+    },
+    "keyVaultName": {
+      "type": "string",
+      "defaultValue": "[format('kv-{0}-{1}', parameters('appNameSuffix'), parameters('environmentType'))]",
+      "metadata": {
+        "description": "Key Vault name"
+      }
+    },
+    "keyVaultResourceGroup": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().name]",
+      "metadata": {
+        "description": "Key Vault resource group"
+      }
+    },
+    "userAssignedIdentityName": {
+      "type": "string",
+      "defaultValue": "configDeployer",
+      "metadata": {
+        "description": "User assigned managed idenity name"
+      }
+    },
+    "userAssignedIdentityResourceGroup": {
+      "type": "string",
+      "defaultValue": "managedIdentity",
+      "metadata": {
+        "description": "User assigned managed idenity resource group"
+      }
+    },
+    "apimApiName": {
+      "type": "string",
+      "defaultValue": "azinsider-api",
+      "metadata": {
+        "description": "API friendly name"
+      }
+    },
+    "resourceTags": {
+      "type": "object",
+      "defaultValue": {
+        "ProjectType": "Azure Serverless Web",
+        "Purpose": "AzInsider-Demo"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    }
+  },
+  "variables": {
+    "staticWebsiteStorageAccountName": "[format('{0}{1}', parameters('appNameSuffix'), parameters('environmentType'))]",
+    "cdnProfileName": "[format('cdn-{0}-{1}', parameters('appNameSuffix'), parameters('environmentType'))]",
+    "functionStorageAccountName": "[format('fn{0}{1}', parameters('appNameSuffix'), parameters('environmentType'))]",
+    "functionAppName": "[format('fn-{0}-{1}', parameters('appNameSuffix'), parameters('environmentType'))]",
+    "functionRuntime": "dotnet",
+    "appServicePlanName": "[format('asp-{0}-{1}', parameters('appNameSuffix'), parameters('environmentType'))]",
+    "appInsightsName": "[format('ai-{0}-{1}', parameters('appNameSuffix'), parameters('environmentType'))]",
+    "cosmosDbName": "[format('{0}-{1}', parameters('appNameSuffix'), parameters('environmentType'))]",
+    "cosmosDbAccountName": "[format('cosmos-{0}-{1}', parameters('appNameSuffix'), parameters('environmentType'))]",
+    "functionSku": "[if(equals(parameters('environmentType'), 'prod'), 'EP1', 'Y1')]",
+    "apimSku": "[if(equals(parameters('environmentType'), 'prod'), 'Standard', 'Developer')]",
+    "cosmosDbCollectionName": "items"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2018-05-01-preview",
+      "name": "[variables('appInsightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "staticWebsite",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "storageAccountName": {
+            "value": "[variables('staticWebsiteStorageAccountName')]"
+          },
+          "deploymentScriptServicePrincipalId": {
+            "value": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('userAssignedIdentityResourceGroup')), 'Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName'))]"
+          },
+          "resourceTags": {
+            "value": "[parameters('resourceTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.16.2.56959",
+              "templateHash": "1024073714240701641"
+            }
+          },
+          "parameters": {
+            "storageAccountName": {
+              "type": "string"
+            },
+            "resourceTags": {
+              "type": "object"
+            },
+            "deploymentScriptServicePrincipalId": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "location": "[resourceGroup().location]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2019-06-01",
+              "name": "[parameters('storageAccountName')]",
+              "location": "[variables('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "sku": {
+                "name": "Standard_LRS",
+                "tier": "Standard"
+              },
+              "kind": "StorageV2",
+              "properties": {
+                "supportsHttpsTrafficOnly": true,
+                "encryption": {
+                  "services": {
+                    "file": {
+                      "keyType": "Account",
+                      "enabled": true
+                    },
+                    "blob": {
+                      "keyType": "Account",
+                      "enabled": true
+                    }
+                  },
+                  "keySource": "Microsoft.Storage"
+                },
+                "accessTier": "Hot"
+              }
+            },
+            {
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2020-10-01",
+              "name": "configStaticWeb",
+              "kind": "AzurePowerShell",
+              "location": "[variables('location')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('deploymentScriptServicePrincipalId'))]": {}
+                }
+              },
+              "properties": {
+                "azPowerShellVersion": "6.1",
+                "timeout": "PT30M",
+                "arguments": "[format('-storageAccount {0} -resourceGroup {1}', parameters('storageAccountName'), resourceGroup().name)]",
+                "scriptContent": "      param([string] $storageAccount, [string] $resourceGroup)\n      $storage = Get-AzStorageAccount -ResourceGroupName $resourceGroup -Name $storageAccount\n      $ctx = $storage.Context\n      Enable-AzStorageStaticWebsite -Context $ctx -IndexDocument index.html -ErrorDocument404Path notfound.html\n      $output = $storage.PrimaryEndpoints.Web\n      $output = $output.TrimEnd('/')\n      $DeploymentScriptOutputs = @{}\n      $DeploymentScriptOutputs['URL'] = $output\n    ",
+                "cleanupPreference": "Always",
+                "retentionInterval": "P1D"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "staticWebsiteURL": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deploymentScripts', 'configStaticWeb'), '2020-10-01').outputs.URL]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "cdn",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "cdnProfileName": {
+            "value": "[variables('cdnProfileName')]"
+          },
+          "staticWebsiteURL": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'staticWebsite'), '2022-09-01').outputs.staticWebsiteURL.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.16.2.56959",
+              "templateHash": "4801780118335632791"
+            }
+          },
+          "parameters": {
+            "cdnProfileName": {
+              "type": "string"
+            },
+            "staticWebsiteURL": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "endpointName": "[replace(parameters('cdnProfileName'), 'cdn-', '')]",
+            "staticWebsiteHostName": "[replace(replace(parameters('staticWebsiteURL'), 'https://', ''), '/', '')]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Cdn/profiles",
+              "apiVersion": "2020-04-15",
+              "name": "[parameters('cdnProfileName')]",
+              "location": "[resourceGroup().location]",
+              "sku": {
+                "name": "Standard_Microsoft"
+              }
+            },
+            {
+              "type": "Microsoft.Cdn/profiles/endpoints",
+              "apiVersion": "2020-04-15",
+              "name": "[format('{0}/{1}', parameters('cdnProfileName'), variables('endpointName'))]",
+              "location": "[resourceGroup().location]",
+              "properties": {
+                "originHostHeader": "[variables('staticWebsiteHostName')]",
+                "isHttpAllowed": false,
+                "isHttpsAllowed": true,
+                "queryStringCachingBehavior": "IgnoreQueryString",
+                "optimizationType": "GeneralWebDelivery",
+                "contentTypesToCompress": [
+                  "text/plain",
+                  "text/html",
+                  "text/css",
+                  "text/javascript",
+                  "application/x-javascript",
+                  "application/javascript",
+                  "application/json",
+                  "application/xml"
+                ],
+                "isCompressionEnabled": true,
+                "origins": [
+                  {
+                    "name": "[replace(variables('staticWebsiteHostName'), '.', '-')]",
+                    "properties": {
+                      "hostName": "[variables('staticWebsiteHostName')]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cdn/profiles', parameters('cdnProfileName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "cdnEndpointURL": {
+              "type": "string",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.Cdn/profiles/endpoints', parameters('cdnProfileName'), variables('endpointName')), '2020-04-15').hostName)]"
+            },
+            "cdnEndpointName": {
+              "type": "string",
+              "value": "[variables('endpointName')]"
+            },
+            "cdnProfileName": {
+              "type": "string",
+              "value": "[parameters('cdnProfileName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'staticWebsite')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "cosmosdb",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[variables('cosmosDbAccountName')]"
+          },
+          "databaseName": {
+            "value": "[variables('cosmosDbName')]"
+          },
+          "collectionName": {
+            "value": "[variables('cosmosDbCollectionName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.16.2.56959",
+              "templateHash": "14182936461379784573"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Cosmos DB account name"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location for the Cosmos DB account."
+              }
+            },
+            "databaseName": {
+              "type": "string",
+              "metadata": {
+                "description": "The name for the Core (MongoDB) database"
+              }
+            },
+            "collectionName": {
+              "type": "string",
+              "metadata": {
+                "description": "The name for the collection"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts",
+              "apiVersion": "2021-04-15",
+              "name": "[toLower(parameters('accountName'))]",
+              "kind": "MongoDB",
+              "location": "[parameters('location')]",
+              "properties": {
+                "databaseAccountOfferType": "Standard",
+                "consistencyPolicy": {
+                  "defaultConsistencyLevel": "Session"
+                },
+                "locations": [
+                  {
+                    "locationName": "[parameters('location')]"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/mongodbDatabases",
+              "apiVersion": "2021-04-15",
+              "name": "[format('{0}/{1}', toLower(parameters('accountName')), format('{0}', toLower(parameters('databaseName'))))]",
+              "properties": {
+                "resource": {
+                  "id": "[parameters('databaseName')]"
+                },
+                "options": {
+                  "throughput": 400
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', toLower(parameters('accountName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/mongodbDatabases/collections",
+              "apiVersion": "2021-06-15",
+              "name": "[format('{0}/{1}/{2}', toLower(parameters('accountName')), format('{0}', toLower(parameters('databaseName'))), format('{0}', toLower(parameters('collectionName'))))]",
+              "properties": {
+                "resource": {
+                  "id": "[parameters('collectionName')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/mongodbDatabases', toLower(parameters('accountName')), format('{0}', toLower(parameters('databaseName'))))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "cosmosDBAccountName": {
+              "type": "string",
+              "value": "[toLower(parameters('accountName'))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "functionApp",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "functionRuntime": {
+            "value": "[variables('functionRuntime')]"
+          },
+          "functionSku": {
+            "value": "[variables('functionSku')]"
+          },
+          "storageAccountName": {
+            "value": "[variables('functionStorageAccountName')]"
+          },
+          "functionAppName": {
+            "value": "[variables('functionAppName')]"
+          },
+          "appServicePlanName": {
+            "value": "[variables('appServicePlanName')]"
+          },
+          "appInsightsInstrumentationKey": {
+            "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2018-05-01-preview').InstrumentationKey]"
+          },
+          "staticWebsiteURL": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'staticWebsite'), '2022-09-01').outputs.staticWebsiteURL.value]"
+          },
+          "cosmosAccountName": {
+            "value": "[variables('cosmosDbAccountName')]"
+          },
+          "cosmosDbName": {
+            "value": "[variables('cosmosDbName')]"
+          },
+          "cosmosDbCollectionName": {
+            "value": "[variables('cosmosDbCollectionName')]"
+          },
+          "keyVaultName": {
+            "value": "[parameters('keyVaultName')]"
+          },
+          "apimIPAddress": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'apim'), '2022-09-01').outputs.apiIPAddress.value]"
+          },
+          "resourceTags": {
+            "value": "[parameters('resourceTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.16.2.56959",
+              "templateHash": "4983841352045632538"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]"
+            },
+            "functionRuntime": {
+              "type": "string"
+            },
+            "functionSku": {
+              "type": "string"
+            },
+            "storageAccountName": {
+              "type": "string"
+            },
+            "functionAppName": {
+              "type": "string"
+            },
+            "appServicePlanName": {
+              "type": "string"
+            },
+            "appInsightsInstrumentationKey": {
+              "type": "string"
+            },
+            "staticWebsiteURL": {
+              "type": "string"
+            },
+            "cosmosAccountName": {
+              "type": "string"
+            },
+            "cosmosDbName": {
+              "type": "string"
+            },
+            "cosmosDbCollectionName": {
+              "type": "string"
+            },
+            "keyVaultName": {
+              "type": "string"
+            },
+            "apimIPAddress": {
+              "type": "string"
+            },
+            "resourceTags": {
+              "type": "object"
+            }
+          },
+          "variables": {
+            "functionTier": "[if(equals(parameters('functionSku'), 'Y1'), 'Dynamic', 'ElasticPremium')]",
+            "functionKind": "[if(equals(parameters('functionSku'), 'Y1'), 'functionapp', 'elastic')]",
+            "keyVaultSecretName": "[format('{0}-key', parameters('cosmosAccountName'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2019-06-01",
+              "name": "[parameters('storageAccountName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "sku": {
+                "name": "Standard_LRS"
+              },
+              "kind": "StorageV2",
+              "properties": {
+                "supportsHttpsTrafficOnly": true,
+                "encryption": {
+                  "services": {
+                    "file": {
+                      "keyType": "Account",
+                      "enabled": true
+                    },
+                    "blob": {
+                      "keyType": "Account",
+                      "enabled": true
+                    }
+                  },
+                  "keySource": "Microsoft.Storage"
+                },
+                "accessTier": "Hot"
+              }
+            },
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2020-06-01",
+              "name": "[parameters('appServicePlanName')]",
+              "location": "[parameters('location')]",
+              "kind": "[variables('functionKind')]",
+              "tags": "[parameters('resourceTags')]",
+              "sku": {
+                "name": "[parameters('functionSku')]",
+                "tier": "[variables('functionTier')]"
+              },
+              "properties": {}
+            },
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2020-06-01",
+              "name": "[parameters('functionAppName')]",
+              "location": "[parameters('location')]",
+              "kind": "functionapp",
+              "tags": "[parameters('resourceTags')]",
+              "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+                "siteConfig": {
+                  "appSettings": [
+                    {
+                      "name": "AzureWebJobsStorage",
+                      "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2019-06-01').keys[0].value)]"
+                    },
+                    {
+                      "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+                      "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2019-06-01').keys[0].value)]"
+                    },
+                    {
+                      "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                      "value": "[parameters('appInsightsInstrumentationKey')]"
+                    },
+                    {
+                      "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                      "value": "[format('InstrumentationKey={0}', parameters('appInsightsInstrumentationKey'))]"
+                    },
+                    {
+                      "name": "FUNCTIONS_WORKER_RUNTIME",
+                      "value": "[parameters('functionRuntime')]"
+                    },
+                    {
+                      "name": "FUNCTIONS_EXTENSION_VERSION",
+                      "value": "~3"
+                    },
+                    {
+                      "name": "KEY_VAULT_URI",
+                      "value": "[format('https://{0}.vault.azure.net', parameters('keyVaultName'))]"
+                    },
+                    {
+                      "name": "CONNECTION_STRINGS",
+                      "value": "[variables('keyVaultSecretName')]"
+                    },
+                    {
+                      "name": "DATABASE_NAME",
+                      "value": "[parameters('cosmosDbName')]"
+                    },
+                    {
+                      "name": "COLLECTION_NAME",
+                      "value": "[parameters('cosmosDbCollectionName')]"
+                    }
+                  ],
+                  "cors": {
+                    "allowedOrigins": [
+                      "[parameters('staticWebsiteURL')]"
+                    ]
+                  },
+                  "ipSecurityRestrictions": [
+                    {
+                      "ipAddress": "[format('{0}/32', parameters('apimIPAddress'))]",
+                      "action": "Allow",
+                      "priority": 100,
+                      "name": "APIM",
+                      "description": "Traffic from APIM"
+                    },
+                    {
+                      "ipAddress": "Any",
+                      "action": "Deny",
+                      "priority": 2147483647,
+                      "name": "Deny all",
+                      "description": "Deny all access"
+                    }
+                  ]
+                },
+                "httpsOnly": true
+              },
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "functionAppName": {
+              "type": "string",
+              "value": "[parameters('functionAppName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'apim')]",
+        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+        "[resourceId('Microsoft.Resources/deployments', 'staticWebsite')]"
+      ]
+    },
+    {
+      "condition": "[not(parameters('createKeyVault'))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "keyVault",
+      "resourceGroup": "[parameters('keyVaultResourceGroup')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "keyVaultName": {
+            "value": "[parameters('keyVaultName')]"
+          },
+          "functionAppName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'functionApp'), '2022-09-01').outputs.functionAppName.value]"
+          },
+          "cosmosAccountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmosdb'), '2022-09-01').outputs.cosmosDBAccountName.value]"
+          },
+          "deploymentScriptServicePrincipalId": {
+            "value": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('userAssignedIdentityResourceGroup')), 'Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName'))]"
+          },
+          "currentResourceGroup": {
+            "value": "[resourceGroup().name]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.16.2.56959",
+              "templateHash": "16401152617879129710"
+            }
+          },
+          "parameters": {
+            "keyVaultName": {
+              "type": "string"
+            },
+            "functionAppName": {
+              "type": "string"
+            },
+            "cosmosAccountName": {
+              "type": "string"
+            },
+            "deploymentScriptServicePrincipalId": {
+              "type": "string"
+            },
+            "currentResourceGroup": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "keyVaultSecretName": "[format('{0}-key', parameters('cosmosAccountName'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.KeyVault/vaults/accessPolicies",
+              "apiVersion": "2021-06-01-preview",
+              "name": "[format('{0}/{1}', parameters('keyVaultName'), 'add')]",
+              "properties": {
+                "accessPolicies": [
+                  {
+                    "tenantId": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('currentResourceGroup')), 'Microsoft.Web/sites', parameters('functionAppName')), '2021-01-15', 'full').identity.tenantId]",
+                    "objectId": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('currentResourceGroup')), 'Microsoft.Web/sites', parameters('functionAppName')), '2021-01-15', 'full').identity.principalId]",
+                    "permissions": {
+                      "secrets": [
+                        "get",
+                        "list"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2020-10-01",
+              "name": "getConnectionString",
+              "kind": "AzurePowerShell",
+              "location": "[resourceGroup().location]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('deploymentScriptServicePrincipalId'))]": {}
+                }
+              },
+              "properties": {
+                "azPowerShellVersion": "6.1",
+                "timeout": "PT30M",
+                "arguments": "[format('-accountName {0} -resourceGroup {1}', parameters('cosmosAccountName'), parameters('currentResourceGroup'))]",
+                "scriptContent": "      param([string] $accountName, [string] $resourceGroup)\n      $connectionStrings = Get-AzCosmosDBAccountKey `\n      -ResourceGroupName $resourceGroup `\n      -Name $accountName `\n      -Type \"ConnectionStrings\"\n      $DeploymentScriptOutputs = @{}\n      $DeploymentScriptOutputs['connectionString'] = $connectionStrings[\"Primary MongoDB Connection String\"]\n    ",
+                "cleanupPreference": "Always",
+                "retentionInterval": "P1D"
+              }
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2021-06-01-preview",
+              "name": "[format('{0}/{1}', parameters('keyVaultName'), variables('keyVaultSecretName'))]",
+              "properties": {
+                "value": "[reference(resourceId('Microsoft.Resources/deploymentScripts', 'getConnectionString'), '2020-10-01').outputs.connectionString]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Resources/deploymentScripts', 'getConnectionString')]"
+              ]
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'cosmosdb')]",
+        "[resourceId('Microsoft.Resources/deployments', 'functionApp')]"
+      ]
+    },
+    {
+      "condition": "[parameters('createKeyVault')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "newKeyVault",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "keyVaultName": {
+            "value": "[parameters('keyVaultName')]"
+          },
+          "functionAppName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'functionApp'), '2022-09-01').outputs.functionAppName.value]"
+          },
+          "cosmosAccountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmosdb'), '2022-09-01').outputs.cosmosDBAccountName.value]"
+          },
+          "deploymentScriptServicePrincipalId": {
+            "value": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('userAssignedIdentityResourceGroup')), 'Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName'))]"
+          },
+          "resourceTags": {
+            "value": "[parameters('resourceTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.16.2.56959",
+              "templateHash": "13325024517635856876"
+            }
+          },
+          "parameters": {
+            "keyVaultName": {
+              "type": "string"
+            },
+            "functionAppName": {
+              "type": "string"
+            },
+            "cosmosAccountName": {
+              "type": "string"
+            },
+            "deploymentScriptServicePrincipalId": {
+              "type": "string"
+            },
+            "resourceTags": {
+              "type": "object"
+            }
+          },
+          "variables": {
+            "keyVaultSecretName": "[format('{0}-key', parameters('cosmosAccountName'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.KeyVault/vaults",
+              "apiVersion": "2021-06-01-preview",
+              "name": "[parameters('keyVaultName')]",
+              "location": "[resourceGroup().location]",
+              "properties": {
+                "sku": {
+                  "name": "standard",
+                  "family": "A"
+                },
+                "tenantId": "[subscription().tenantId]",
+                "accessPolicies": [
+                  {
+                    "tenantId": "[reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2021-01-15', 'full').identity.tenantId]",
+                    "objectId": "[reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2021-01-15', 'full').identity.principalId]",
+                    "permissions": {
+                      "secrets": [
+                        "get"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "tags": "[parameters('resourceTags')]"
+            },
+            {
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2020-10-01",
+              "name": "getConnectionString",
+              "kind": "AzurePowerShell",
+              "location": "[resourceGroup().location]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('deploymentScriptServicePrincipalId'))]": {}
+                }
+              },
+              "properties": {
+                "azPowerShellVersion": "6.1",
+                "timeout": "PT30M",
+                "arguments": "[format('-accountName {0} -resourceGroup {1}', parameters('cosmosAccountName'), resourceGroup().name)]",
+                "scriptContent": "      param([string] $accountName, [string] $resourceGroup)\n      $connectionStrings = Get-AzCosmosDBAccountKey `\n      -ResourceGroupName $resourceGroup `\n      -Name $accountName `\n      -Type \"ConnectionStrings\"\n      $DeploymentScriptOutputs = @{}\n      $DeploymentScriptOutputs['connectionString'] = $connectionStrings[\"Primary MongoDB Connection String\"]\n    ",
+                "cleanupPreference": "Always",
+                "retentionInterval": "P1D"
+              }
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2021-06-01-preview",
+              "name": "[format('{0}/{1}', parameters('keyVaultName'), variables('keyVaultSecretName'))]",
+              "properties": {
+                "value": "[reference(resourceId('Microsoft.Resources/deploymentScripts', 'getConnectionString'), '2020-10-01').outputs.connectionString]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Resources/deploymentScripts', 'getConnectionString')]",
+                "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+              ]
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'cosmosdb')]",
+        "[resourceId('Microsoft.Resources/deployments', 'functionApp')]"
+      ]
+    },
+    {
+      "condition": "[parameters('createApim')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "apim",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "apimName": {
+            "value": "[parameters('apimName')]"
+          },
+          "appInsightsName": {
+            "value": "[variables('appInsightsName')]"
+          },
+          "appInsightsInstrumentationKey": {
+            "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2018-05-01-preview').InstrumentationKey]"
+          },
+          "sku": {
+            "value": "[variables('apimSku')]"
+          },
+          "resourceTags": {
+            "value": "[parameters('resourceTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.16.2.56959",
+              "templateHash": "16945075472454825858"
+            }
+          },
+          "parameters": {
+            "apimName": {
+              "type": "string",
+              "metadata": {
+                "description": "API Management DB account name"
+              }
+            },
+            "appInsightsName": {
+              "type": "string"
+            },
+            "appInsightsInstrumentationKey": {
+              "type": "string"
+            },
+            "resourceTags": {
+              "type": "object"
+            },
+            "sku": {
+              "type": "string",
+              "defaultValue": "Developer",
+              "metadata": {
+                "description": "The pricing tier of this API Management service"
+              },
+              "allowedValues": [
+                "Consumption",
+                "Developer",
+                "Basic",
+                "Standard",
+                "Premium"
+              ]
+            },
+            "skuCount": {
+              "type": "int",
+              "defaultValue": 1,
+              "minValue": 1,
+              "metadata": {
+                "description": "The instance size of this API Management service."
+              }
+            }
+          },
+          "variables": {
+            "location": "[resourceGroup().location]",
+            "publisherEmail": "email@domain.com",
+            "publisherName": "Your Company"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ApiManagement/service",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[parameters('apimName')]",
+              "location": "[variables('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "sku": {
+                "name": "[parameters('sku')]",
+                "capacity": "[parameters('skuCount')]"
+              },
+              "properties": {
+                "publisherEmail": "[variables('publisherEmail')]",
+                "publisherName": "[variables('publisherName')]"
+              },
+              "identity": {
+                "type": "SystemAssigned"
+              }
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/loggers",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}', parameters('apimName'), parameters('appInsightsName'))]",
+              "properties": {
+                "loggerType": "applicationInsights",
+                "description": "Logger resources to APIM",
+                "credentials": {
+                  "instrumentationKey": "[parameters('appInsightsInstrumentationKey')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service', parameters('apimName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/diagnostics",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}', parameters('apimName'), 'applicationinsights')]",
+              "properties": {
+                "loggerId": "[resourceId('Microsoft.ApiManagement/service/loggers', parameters('apimName'), parameters('appInsightsName'))]",
+                "alwaysLog": "allErrors",
+                "logClientIp": true,
+                "sampling": {
+                  "percentage": 100,
+                  "samplingType": "fixed"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service', parameters('apimName'))]",
+                "[resourceId('Microsoft.ApiManagement/service/loggers', parameters('apimName'), parameters('appInsightsName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "gatewayUrl": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ApiManagement/service', parameters('apimName')), '2021-01-01-preview').gatewayUrl]"
+            },
+            "apiIPAddress": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ApiManagement/service', parameters('apimName')), '2021-01-01-preview').publicIPAddresses[0]]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "apimAPI",
+      "resourceGroup": "[parameters('apimResourceGroup')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "apimName": {
+            "value": "[parameters('apimName')]"
+          },
+          "currentResourceGroup": {
+            "value": "[resourceGroup().name]"
+          },
+          "backendApiName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'functionApp'), '2022-09-01').outputs.functionAppName.value]"
+          },
+          "apiName": {
+            "value": "[parameters('apimApiName')]"
+          },
+          "originUrl": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cdn'), '2022-09-01').outputs.cdnEndpointURL.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.16.2.56959",
+              "templateHash": "8192368296107882669"
+            }
+          },
+          "parameters": {
+            "apimName": {
+              "type": "string"
+            },
+            "currentResourceGroup": {
+              "type": "string"
+            },
+            "backendApiName": {
+              "type": "string"
+            },
+            "apiName": {
+              "type": "string"
+            },
+            "originUrl": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "$fxv#0": "<policies>\n    <inbound>\n        <cors>\n            <allowed-origins>\n                <origin>__ORIGIN__</origin>\n            </allowed-origins>\n            <allowed-methods>\n                <method>*</method>\n            </allowed-methods>\n            <allowed-headers>\n                <header>*</header>\n            </allowed-headers>\n            <expose-headers>\n                <header>*</header>\n            </expose-headers>\n        </cors>\n    </inbound>\n    <backend>\n        <forward-request />\n    </backend>\n    <outbound />\n    <on-error />\n</policies>",
+            "$fxv#1": "<policies>\n    <inbound>\n        <cors>\n            <allowed-origins>\n                <origin>__ORIGIN__</origin>\n            </allowed-origins>\n            <allowed-methods>\n                <method>*</method>\n            </allowed-methods>\n            <allowed-headers>\n                <header>*</header>\n            </allowed-headers>\n            <expose-headers>\n                <header>*</header>\n            </expose-headers>\n        </cors>\n    </inbound>\n    <backend>\n        <forward-request />\n    </backend>\n    <outbound />\n    <on-error />\n</policies>",
+            "$fxv#2": "<policies>\n    <inbound>\n        <base />\n        <set-backend-service id=\"apim-generated-policy\" backend-id=\"__BACKEND-ID__\" />\n    </inbound>\n    <backend>\n        <base />\n    </backend>\n    <outbound />\n    <on-error>\n        <base />\n    </on-error>\n</policies>",
+            "$fxv#3": "<policies>\n    <inbound>\n        <base />\n        <set-backend-service id=\"apim-generated-policy\" backend-id=\"__BACKEND-ID__\" />\n    </inbound>\n    <backend>\n        <base />\n    </backend>\n    <outbound />\n    <on-error>\n        <base />\n    </on-error>\n</policies>",
+            "$fxv#4": "<policies>\n    <inbound>\n        <base />\n        <set-backend-service id=\"apim-generated-policy\" backend-id=\"__BACKEND-ID__\" />\n    </inbound>\n    <backend>\n        <base />\n    </backend>\n    <outbound />\n    <on-error>\n        <base />\n    </on-error>\n</policies>",
+            "$fxv#5": "<policies>\n    <inbound>\n        <base />\n        <set-backend-service id=\"apim-generated-policy\" backend-id=\"__BACKEND-ID__\" />\n    </inbound>\n    <backend>\n        <base />\n    </backend>\n    <outbound />\n    <on-error>\n        <base />\n    </on-error>\n</policies>",
+            "$fxv#6": "<policies>\n    <inbound>\n        <base />\n        <set-backend-service id=\"apim-generated-policy\" backend-id=\"__BACKEND-ID__\" />\n    </inbound>\n    <backend>\n        <base />\n    </backend>\n    <outbound />\n    <on-error>\n        <base />\n    </on-error>\n</policies>",
+            "functionAppKeyName": "[format('{0}-key', parameters('backendApiName'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ApiManagement/service/namedValues",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}', parameters('apimName'), variables('functionAppKeyName'))]",
+              "properties": {
+                "displayName": "[variables('functionAppKeyName')]",
+                "value": "[listKeys(format('{0}/host/default', extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('currentResourceGroup')), 'Microsoft.Web/sites', parameters('backendApiName'))), '2019-08-01').functionKeys.default]"
+              }
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/backends",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}', parameters('apimName'), parameters('backendApiName'))]",
+              "properties": {
+                "description": "[parameters('backendApiName')]",
+                "resourceId": "[format('https://management.azure.com{0}', extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('currentResourceGroup')), 'Microsoft.Web/sites', parameters('backendApiName')))]",
+                "credentials": {
+                  "header": {
+                    "x-functions-key": [
+                      "[format('{{{{{0}}}}}', reference(resourceId('Microsoft.ApiManagement/service/namedValues', parameters('apimName'), variables('functionAppKeyName')), '2021-01-01-preview').displayName)]"
+                    ]
+                  }
+                },
+                "url": "[format('https://{0}/api', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('currentResourceGroup')), 'Microsoft.Web/sites', parameters('backendApiName')), '2021-01-15').hostNames[0])]",
+                "protocol": "http"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/namedValues', parameters('apimName'), variables('functionAppKeyName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}', parameters('apimName'), parameters('apiName'))]",
+              "properties": {
+                "path": "[parameters('apiName')]",
+                "displayName": "[parameters('apiName')]",
+                "isCurrent": true,
+                "subscriptionRequired": false,
+                "protocols": [
+                  "https"
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/policies",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('apimName'), parameters('apiName'), 'policy')]",
+              "properties": {
+                "format": "rawxml",
+                "value": "[replace(variables('$fxv#0'), '__ORIGIN__', parameters('originUrl'))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), parameters('apiName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('apimName'), parameters('apiName'), 'getTodoList')]",
+              "properties": {
+                "displayName": "Get Todo List",
+                "method": "GET",
+                "urlTemplate": "/todos"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), parameters('apiName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations/policies",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}/{2}/{3}', parameters('apimName'), parameters('apiName'), 'getTodoList', 'policy')]",
+              "properties": {
+                "format": "rawxml",
+                "value": "[replace(variables('$fxv#1'), '__BACKEND-ID__', parameters('backendApiName'))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/backends', parameters('apimName'), parameters('backendApiName'))]",
+                "[resourceId('Microsoft.ApiManagement/service/apis/operations', parameters('apimName'), parameters('apiName'), 'getTodoList')]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('apimName'), parameters('apiName'), 'getTodoItem')]",
+              "properties": {
+                "displayName": "Get Todo Item",
+                "method": "GET",
+                "urlTemplate": "/todos/{id}",
+                "templateParameters": [
+                  {
+                    "name": "id",
+                    "required": true,
+                    "type": "String"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), parameters('apiName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations/policies",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}/{2}/{3}', parameters('apimName'), parameters('apiName'), 'getTodoItem', 'policy')]",
+              "properties": {
+                "format": "rawxml",
+                "value": "[replace(variables('$fxv#2'), '__BACKEND-ID__', parameters('backendApiName'))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/backends', parameters('apimName'), parameters('backendApiName'))]",
+                "[resourceId('Microsoft.ApiManagement/service/apis/operations', parameters('apimName'), parameters('apiName'), 'getTodoItem')]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('apimName'), parameters('apiName'), 'postTodoItem')]",
+              "properties": {
+                "displayName": "Create Todo Item",
+                "method": "POST",
+                "urlTemplate": "/todos"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), parameters('apiName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations/policies",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}/{2}/{3}', parameters('apimName'), parameters('apiName'), 'postTodoItem', 'policy')]",
+              "properties": {
+                "format": "rawxml",
+                "value": "[replace(variables('$fxv#3'), '__BACKEND-ID__', parameters('backendApiName'))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/backends', parameters('apimName'), parameters('backendApiName'))]",
+                "[resourceId('Microsoft.ApiManagement/service/apis/operations', parameters('apimName'), parameters('apiName'), 'postTodoItem')]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('apimName'), parameters('apiName'), 'putTodoItem')]",
+              "properties": {
+                "displayName": "Update Todo Item",
+                "method": "PUT",
+                "urlTemplate": "/todos/{id}",
+                "templateParameters": [
+                  {
+                    "name": "id",
+                    "required": true,
+                    "type": "String"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), parameters('apiName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations/policies",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}/{2}/{3}', parameters('apimName'), parameters('apiName'), 'putTodoItem', 'policy')]",
+              "properties": {
+                "format": "rawxml",
+                "value": "[replace(variables('$fxv#4'), '__BACKEND-ID__', parameters('backendApiName'))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/backends', parameters('apimName'), parameters('backendApiName'))]",
+                "[resourceId('Microsoft.ApiManagement/service/apis/operations', parameters('apimName'), parameters('apiName'), 'putTodoItem')]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('apimName'), parameters('apiName'), 'deleteTodoItem')]",
+              "properties": {
+                "displayName": "Delete Todo Item",
+                "method": "DELETE",
+                "urlTemplate": "/todos/{id}",
+                "templateParameters": [
+                  {
+                    "name": "id",
+                    "required": true,
+                    "type": "String"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), parameters('apiName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations/policies",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}/{2}/{3}', parameters('apimName'), parameters('apiName'), 'deleteTodoItem', 'policy')]",
+              "properties": {
+                "format": "rawxml",
+                "value": "[replace(variables('$fxv#5'), '__BACKEND-ID__', parameters('backendApiName'))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/backends', parameters('apimName'), parameters('backendApiName'))]",
+                "[resourceId('Microsoft.ApiManagement/service/apis/operations', parameters('apimName'), parameters('apiName'), 'deleteTodoItem')]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('apimName'), parameters('apiName'), 'HealthCheck')]",
+              "properties": {
+                "displayName": "Health Probe",
+                "method": "HEAD",
+                "urlTemplate": "/todos"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apimName'), parameters('apiName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ApiManagement/service/apis/operations/policies",
+              "apiVersion": "2021-01-01-preview",
+              "name": "[format('{0}/{1}/{2}/{3}', parameters('apimName'), parameters('apiName'), 'HealthCheck', 'policy')]",
+              "properties": {
+                "format": "rawxml",
+                "value": "[replace(variables('$fxv#6'), '__BACKEND-ID__', parameters('backendApiName'))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/backends', parameters('apimName'), parameters('backendApiName'))]",
+                "[resourceId('Microsoft.ApiManagement/service/apis/operations', parameters('apimName'), parameters('apiName'), 'HealthCheck')]"
+              ]
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'cdn')]",
+        "[resourceId('Microsoft.Resources/deployments', 'functionApp')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "functionAppName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'functionApp'), '2022-09-01').outputs.functionAppName.value]"
+    },
+    "apiUrl": {
+      "type": "string",
+      "value": "[format('{0}/{1}', reference(resourceId('Microsoft.Resources/deployments', 'apim'), '2022-09-01').outputs.gatewayUrl.value, parameters('apimApiName'))]"
+    },
+    "staticWebsiteStorageAccountName": {
+      "type": "string",
+      "value": "[variables('staticWebsiteStorageAccountName')]"
+    },
+    "staticWebsiteUrl": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'staticWebsite'), '2022-09-01').outputs.staticWebsiteURL.value]"
+    },
+    "apimName": {
+      "type": "string",
+      "value": "[parameters('apimName')]"
+    },
+    "cdnEndpointName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cdn'), '2022-09-01').outputs.cdnEndpointName.value]"
+    },
+    "cdnProfileName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cdn'), '2022-09-01').outputs.cdnProfileName.value]"
+    },
+    "cdnEndpointURL": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'cdn'), '2022-09-01').outputs.cdnEndpointURL.value]"
+    }
+  }
+}
