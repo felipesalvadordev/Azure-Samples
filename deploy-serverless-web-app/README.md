@@ -1,5 +1,9 @@
 # Deploy Serverless web application using Bicep
 
+Solution Overview:  
+![image](https://github.com/felipesalvadordev/Azure-Samples/assets/13543372/6ba1a466-3f4f-4c6d-943f-d4d248fb2a30)
+
+
 Bicep Commands: 
 
 az bicep build --file main.bicep
