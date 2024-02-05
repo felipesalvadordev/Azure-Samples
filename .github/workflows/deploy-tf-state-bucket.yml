@@ -23,7 +23,7 @@ jobs:
           az login --service-principal \
             --username ${{ secrets.ARM_CLIENT_ID }} \
           az group create \
-            --locatiom $TF_VAR_location \
+            --location $TF_VAR_location \
             --name $TF_VAR_state_resource_group_name
           az storage account create \
             --name $TF_VAR_state_storage_account_name \
