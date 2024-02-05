@@ -21,7 +21,7 @@ jobs:
           set -a 
           source github-actions-terraform/.env.backend
           az login --service-principal \
-            --u ${{ secrets.ARM_CLIENT_ID }} \
+            --username ${{ secrets.ARM_CLIENT_ID }} \
           az group create \
             --l $TF_VAR_location \
             --n $TF_VAR_state_resource_group_name
