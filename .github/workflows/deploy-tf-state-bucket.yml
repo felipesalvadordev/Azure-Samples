@@ -19,15 +19,18 @@ jobs:
       - name: Deploy state bucket
         run: |
           set -a 
-          source github-actions-terraform/.env.backend
+          source azure-terraform-github-actions/.env.backend
           az login --service-principal \
-            --username ${{ secrets.ARM_CLIENT_ID }} \
+            -u ${{ secrets.AZURE_CLIENT_ID }} \
+            -p ${{ secrets.AZURE_CLIENT_SECRET }} \
+            -t ${{ secrets.AZURE_TENANT_ID }}
           az group create \
-            --location $TF_VAR_location --name $TF_VAR_state_resource_group_name
+            -l $TF_VAR_location \
+            -n $TF_VAR_state_resource_group_name
           az storage account create \
-            --name $TF_VAR_state_storage_account_name \
-            --g $TF_VAR_state_resource_group_name \
-            --location $TF_VAR_location \
+            -n $TF_VAR_state_storage_account_name \
+            -g $TF_VAR_state_resource_group_name \
+            -l $TF_VAR_location \
             --sku Standard_LRS \
             --allow-blob-public-access false
           az storage container create \
