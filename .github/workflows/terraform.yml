@@ -35,7 +35,7 @@ jobs:
       run: terraform init
     # Generates an execution plan for Terraform
     - name: Terraform Plan
-      run: terraform plan -input=false
+      run: terraform plan -no-color
     # Apply Terraform changes
     - name: Terraform Apply
       run: terraform apply -auto-approve -input=false
