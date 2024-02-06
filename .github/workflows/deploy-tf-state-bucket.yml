@@ -21,8 +21,8 @@ jobs:
           set -a 
           source azure-terraform-github-actions/.env.backend
           az login --service-principal \
-            -u ${{ secrets.AZURE_CLIENT_ID }} \
-            -t ${{ secrets.AZURE_TENANT_ID }}
+            -username ${{ secrets.AZURE_CLIENT_ID }} \
+            -tenant ${{ secrets.AZURE_TENANT_ID }}
           az group create \
             -l $TF_VAR_location \
             -n $TF_VAR_state_resource_group_name
