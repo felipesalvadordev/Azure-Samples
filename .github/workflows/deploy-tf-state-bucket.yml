@@ -19,7 +19,7 @@ jobs:
       - name: Deploy state bucket
         run: |
           set -a 
-          source azure-terraform-github-actions.env.backend
+          source azure-terraform-github-actions/.env.backend
           az login --service-principal \
             -u ${{ secrets.AZURE_CLIENT_ID }} \
             -p ${{ secrets.AZURE_CLIENT_SECRET }} \
