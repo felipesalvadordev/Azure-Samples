@@ -24,14 +24,17 @@ jobs:
     - name: 'Terraform init' 
       id: init                                   
       run: |                                     
-        terraform init                           
+        terraform init     
+        working-directory: azure-deploy-github-actions
               
     - name: 'Terraform plan'                                   
       id: plan                                   
       run: |                                     
-        terraform plan                 
+        terraform plan   
+        working-directory: azure-deploy-github-actions
                                     
     - name: 'Terraform apply' 
       id: apply            
       run: |    
         terraform apply -auto-approve
+        working-directory: azure-deploy-github-actions
