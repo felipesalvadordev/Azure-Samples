@@ -13,9 +13,6 @@ jobs:
 
   validate:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./blue-green-deployment 
     steps:
       - uses: actions/checkout@v2
       - uses: azure/login@v1
@@ -34,9 +31,6 @@ jobs:
 
   preview:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./blue-green-deployment 
     needs: [lint, validate]
     steps:
       - uses: actions/checkout@v2
@@ -51,9 +45,6 @@ jobs:
             az deployment group what-if --resource-group ${{ secrets.AZURE_RG }} --template-file ./blue-green-deployment/main.bicep --parameters ./blue-green-deployment/parameters.json            
   deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./blue-green-deployment 
     environment: Dev
     needs: preview
     steps:
@@ -68,6 +59,6 @@ jobs:
         with:
           subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION }}
           resourceGroupName: ${{ secrets.AZURE_RG }}
-          template: ./main.bicep
-          parameters: ./parameters.json
+          template: ./blue-green-deployment/main.bicep
+          parameters: ./blue-green-deployment/parameters.json
           failOnStdErr: false
