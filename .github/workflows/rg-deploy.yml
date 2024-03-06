@@ -10,13 +10,10 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./blue-green-deployment 
     steps:
       - uses: actions/checkout@v2
       - name: Run Bicep Linter
-        run: az bicep build --file ./main.bicep
+        run: az bicep build --file ./blue-green-deployment/main.bicep
 
   validate:
     runs-on: ubuntu-latest
