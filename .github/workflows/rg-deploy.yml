@@ -20,6 +20,9 @@ jobs:
 
   validate:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./blue-green-deployment 
     steps:
       - uses: actions/checkout@v2
       - uses: azure/login@v1
@@ -38,6 +41,9 @@ jobs:
 
   preview:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./blue-green-deployment 
     needs: [lint, validate]
     steps:
       - uses: actions/checkout@v2
@@ -52,6 +58,9 @@ jobs:
             az deployment group what-if --resource-group ${{ secrets.AZURE_RG }} --template-file ./main.bicep --parameters ./parameters.json            
   deploy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./blue-green-deployment 
     environment: Dev
     needs: preview
     steps:
