@@ -1,13 +1,9 @@
 name: Deploy Azure Infrastructure
 
 on:
-  push:
-    paths:
-      - 'deploy/*'
   workflow_dispatch:
 
 jobs:
-
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -32,8 +28,8 @@ jobs:
         with:
           deploymentName: ${{ github.run_number }}
           resourceGroupName: ${{ secrets.AZURE_RG }}
-          template: ./main.bicep
-          parameters: ./parameters.json
+          template: ./blue-green-deployment/main.bicep
+          parameters: ./blue-green-deployment/parameters.json
           deploymentMode: Validate
 
   preview:
@@ -52,7 +48,7 @@ jobs:
         name: Run what-if
         with:
           inlineScript: |
-            az deployment group what-if --resource-group ${{ secrets.AZURE_RG }} --template-file ./main.bicep --parameters ./parameters.json            
+            az deployment group what-if --resource-group ${{ secrets.AZURE_RG }} --template-file ./blue-green-deployment/main.bicep --parameters ./blue-green-deployment/parameters.json            
   deploy:
     runs-on: ubuntu-latest
     defaults:
