@@ -1,3 +1,3 @@
 # Implementing Blue/Green Deployments with Azure Web Apps for Containers
 
-https://willvelida.medium.com/implementing-blue-green-deployments-with-azure-web-apps-for-containers-29538aff0019
+https://www.willvelida.com/posts/blue-green-deployments-app-service-containers/
