@@ -5,7 +5,7 @@ on:
 
 defaults:
   run:
-    working-directory: ./blue-green-deployment
+    working-directory: ./blue-green-deployment/src
 
 # Note: The use of :latest for the container image is not recommeded for production environments.
 jobs:
