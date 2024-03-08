@@ -29,3 +29,28 @@ jobs:
     - run: |
         docker build . -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/hellobluegreenwebapp:latest
         docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/hellobluegreenwebapp:latest        
+        
+  deploy-to-blue-slot:
+      needs: build-container-image
+      runs-on: ubuntu-latest
+      steps:
+      - name: 'Checkout GitHub Action'
+        uses: actions/checkout@main
+        
+      - name: 'Login via Azure CLI'
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+  
+      - name: 'Get App Name'
+        id: getwebappname
+        run: |
+          a=$(az webapp list -g ${{ secrets.AZURE_RG }} --query '[].{Name:name}' -o tsv)
+          echo "::set-output name=appName::$a"        
+  
+      - name: 'Deploy to Blue Slot'
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ steps.getwebappname.outputs.appName }}
+          images: ${{ secrets.REGISTRY_LOGIN_SERVER }}/hellobluegreenwebapp:latest
+          slot-name: 'blue'
